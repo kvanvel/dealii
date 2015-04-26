@@ -43,6 +43,8 @@ template<class MATRIX, class VECTOR>
 class
   TransposeMatrix : public PointerMatrixBase<VECTOR>
 {
+
+  typedef types::global_dof_index size_type;
 public:
   /**
    * Constructor.  The pointer in the argument is stored in this class. As
@@ -106,11 +108,23 @@ public:
   virtual void Tvmult_add (VECTOR &dst,
                            const VECTOR &src) const;
 
+  /** 
+   * Number of rows of the transposed matrix.
+   */
+
+  size_type m () const;
+
+  /**
+   * Number of columns of the transposed matrix.
+   */
+
+  size_type n () const;
+
 private:
   /**
    * The pointer to the actual matrix.
    */
-  SmartPointer<const MATRIX,TransposeMatrix<MATRIX,VECTOR> > m;
+  SmartPointer<const MATRIX,TransposeMatrix<MATRIX,VECTOR> > mat;
 };
 
 
@@ -119,13 +133,13 @@ private:
 
 template<class MATRIX, class VECTOR>
 TransposeMatrix<MATRIX, VECTOR>::TransposeMatrix (const MATRIX *M)
-  : m(M)
+  : mat(M)
 {}
 
 
 template<class MATRIX, class VECTOR>
 TransposeMatrix<MATRIX, VECTOR>::TransposeMatrix (const char *name)
-  : m(0, name)
+  : mat(0, name)
 {}
 
 
@@ -133,7 +147,7 @@ template<class MATRIX, class VECTOR>
 TransposeMatrix<MATRIX, VECTOR>::TransposeMatrix (
   const MATRIX *M,
   const char *name)
-  : m(M, name)
+  : mat(M, name)
 {}
 
 
@@ -141,7 +155,7 @@ template<class MATRIX, class VECTOR>
 inline void
 TransposeMatrix<MATRIX, VECTOR>::clear ()
 {
-  m = 0;
+  mat = 0;
 }
 
 
@@ -149,7 +163,7 @@ template<class MATRIX, class VECTOR>
 inline const TransposeMatrix<MATRIX, VECTOR> &
 TransposeMatrix<MATRIX, VECTOR>::operator= (const MATRIX *M)
 {
-  m = M;
+  mat = M;
   return *this;
 }
 
@@ -158,9 +172,9 @@ template<class MATRIX, class VECTOR>
 inline bool
 TransposeMatrix<MATRIX, VECTOR>::empty () const
 {
-  if (m == 0)
+  if (mat == 0)
     return true;
-  return m->empty();
+  return mat->empty();
 }
 
 template<class MATRIX, class VECTOR>
@@ -168,8 +182,8 @@ inline void
 TransposeMatrix<MATRIX, VECTOR>::vmult (VECTOR &dst,
                                         const VECTOR &src) const
 {
-  Assert (m != 0, ExcNotInitialized());
-  m->Tvmult (dst, src);
+  Assert (mat != 0, ExcNotInitialized());
+  mat->Tvmult (dst, src);
 }
 
 
@@ -178,8 +192,8 @@ inline void
 TransposeMatrix<MATRIX, VECTOR>::Tvmult (VECTOR &dst,
                                          const VECTOR &src) const
 {
-  Assert (m != 0, ExcNotInitialized());
-  m->vmult (dst, src);
+  Assert (mat != 0, ExcNotInitialized());
+  mat->vmult (dst, src);
 }
 
 
@@ -188,8 +202,8 @@ inline void
 TransposeMatrix<MATRIX, VECTOR>::vmult_add (VECTOR &dst,
                                             const VECTOR &src) const
 {
-  Assert (m != 0, ExcNotInitialized());
-  m->Tvmult_add (dst, src);
+  Assert (mat != 0, ExcNotInitialized());
+  mat->Tvmult_add (dst, src);
 }
 
 
@@ -198,8 +212,24 @@ inline void
 TransposeMatrix<MATRIX, VECTOR>::Tvmult_add (VECTOR &dst,
                                              const VECTOR &src) const
 {
-  Assert (m != 0, ExcNotInitialized());
-  m->vmult_add (dst, src);
+  Assert (mat != 0, ExcNotInitialized());
+  mat->vmult_add (dst, src);
+}
+
+template<class MATRIX, class VECTOR>
+inline size_type
+TransposeMatrix<MATRIX, VECTOR>::m() const
+{
+  Assert(mat != 0, ExcNotInitialized());
+  return mat->n();
+}
+
+template<class MATRIX, class VECTOR>
+inline size_type
+TransposeMatrix<MATRIX, VECTOR>::n() const
+{
+  Assert(mat != 0, ExcNotInitialized());
+  return mat->m();
 }
 
 
