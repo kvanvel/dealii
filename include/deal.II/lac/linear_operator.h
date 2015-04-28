@@ -146,6 +146,20 @@ public:
       Assert(false, ExcMessage("Uninitialized LinearOperator<Range, "
                                "Domain>::reinit_domain_vector method called"));
     };
+
+    m = []()
+    {
+	Assert(false, ExcMessage("Unintialized LinearOperator<Range, "
+				 "Domain>::m method called"));
+	return 0;
+    };
+
+    n = []()
+    {
+	Assert(false, ExcMessage("Unintialized LinearOperator<Range, "
+				 "Domain>::n method called"));
+	return 0;
+    };
   }
 
   /**
@@ -224,6 +238,9 @@ public:
    */
   std::function<void(Domain &v, bool fast)> reinit_domain_vector;
 
+  std::function<unsigned int()> m;
+
+  std::function<unsigned int()> n;
 
   /**
    * Addition with a LinearOperator @p second_op with the same @p Domain
@@ -278,6 +295,8 @@ operator+(const LinearOperator<Range, Domain> &first_op,
 
   return_op.reinit_range_vector = first_op.reinit_range_vector;
   return_op.reinit_domain_vector = first_op.reinit_domain_vector;
+  return_op.m = first_op.m;
+  return_op.n = first_op.n;
 
   // ensure to have valid computation objects by catching first_op and
   // second_op by value
@@ -305,6 +324,7 @@ operator+(const LinearOperator<Range, Domain> &first_op,
     second_op.Tvmult_add(v, u);
     first_op.Tvmult_add(v, u);
   };
+
 
   return return_op;
 }
@@ -345,6 +365,8 @@ operator*(const LinearOperator<Range, Intermediate> &first_op,
 
   return_op.reinit_domain_vector = second_op.reinit_domain_vector;
   return_op.reinit_range_vector = first_op.reinit_range_vector;
+  return_op.m = first_op.m;
+  return_op.n = second_op.n;
 
   // ensure to have valid computation objects by catching first_op and
   // second_op by value
@@ -501,6 +523,8 @@ transpose_operator(const LinearOperator<Range, Domain> &op)
 
   return_op.reinit_range_vector = op.reinit_domain_vector;
   return_op.reinit_domain_vector = op.reinit_range_vector;
+  return_op.m = op.n;
+  return_op.n = op.m;
 
   return_op.vmult = op.Tvmult;
   return_op.vmult_add = op.Tvmult_add;
@@ -532,7 +556,9 @@ identity_operator(const std::function<void(Range &, bool)> &reinit_vector)
 
   return_op.reinit_range_vector = reinit_vector;
   return_op.reinit_domain_vector = reinit_vector;
-
+  //return_op.m =  
+  //return_op.n =
+  
   return_op.vmult = [](Range &v, const Range &u)
   {
     v = u;
@@ -587,6 +613,8 @@ inverse_operator(const LinearOperator<typename Solver::vector_type, typename Sol
 
   return_op.reinit_range_vector = op.reinit_domain_vector;
   return_op.reinit_domain_vector = op.reinit_range_vector;
+  return_op.m = op.m;
+  return_op.n = op.n;
 
   return_op.vmult = [op, &solver, &preconditioner](Vector &v, const Vector &u)
   {
@@ -734,6 +762,23 @@ block_operator(const std::array<std::array<LinearOperator<typename Range::BlockT
         ops[j][i].Tvmult_add(v.block(i), u.block(j));
   };
 
+  return_op.m = [ops]()
+  {
+    unsigned int n_Rows = 0;
+    for(unsigned int i = 0; i < m; ++i)
+      n_Rows += ops[i][0].m();
+    return n_Rows;
+  };
+
+  return_op.n = [ops]()
+  {
+    unsigned int n_Cols = 0;
+    for(unsigned int i = 0; i < n; ++i)
+      n_Cols += ops[0][i].n();
+    return n_Cols;
+  };
+
+  
   return return_op;
 }
 
@@ -826,6 +871,23 @@ block_diagonal_operator(const std::array<LinearOperator<typename Range::BlockTyp
       ops[i].Tvmult_add(v.block(i), u.block(i));
   };
 
+  return_op.m = [ops]()
+  {
+    unsigned int n_Rows = 0;
+    for(unsigned int i = 0; i < m; ++i)
+      n_Rows += ops[i].m();
+    return n_Rows;
+  };
+  
+  return_op.n = [ops]()
+  {
+    unsigned int n_Cols = 0;
+    for(unsigned int i = 0; i < m; ++i)
+      n_Cols += ops[i].n();
+    return n_Cols;
+  }
+
+
   return return_op;
 }
 
@@ -912,6 +974,16 @@ block_diagonal_operator(const LinearOperator<typename Range::BlockType, typename
       op.Tvmult_add(v.block(i), u.block(i));
   };
 
+  return_op.m = [op]()
+  {
+    return m*op.m();
+  };
+
+  return_op.n = [op]()
+  {
+    return m*op.n();
+  };
+  
   return return_op;
 }
 
@@ -1035,6 +1107,16 @@ namespace
       {
         matrix.Tvmult_add(v,u);
       };
+
+      op.m = [&matrix]()
+      {
+	return matrix.m();
+      };
+
+      op.n = [&matrix]()
+      {
+	return matrix.n();
+      };
     }
   };
 
@@ -1079,6 +1161,16 @@ namespace
         op.Tvmult(*i, u);
         v += *i;
         vector_memory.free(i);
+      };
+
+      op.m = [&matrix]()
+      {
+	matrix.m();
+      };
+
+      op.n = [&matrix]()
+      {
+	matrix.n();
       };
     }
   };
@@ -1193,6 +1285,17 @@ linear_operator(const OperatorExemplar &operator_exemplar, const Matrix &matrix)
     internal::LinearOperator::ReinitHelper<Domain>::reinit_domain_vector(operator_exemplar, v, fast);
   };
 
+  return_op.m = [&operator_exemplar]()
+  {
+    return operator_exemplar.m();
+  };
+
+
+  return_op.n = [&operator_exemplar]()
+  {
+    return operator_exemplar.n();
+  };
+  
   typename std::conditional<
   has_vmult_add<Range, Domain, Matrix>::type::value,
                 MatrixInterfaceWithVmultAdd<Range, Domain>,
